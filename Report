@@ -1,0 +1,157 @@
+---
+title: "Report"
+author: "Sebi Otte"
+date: "1/18/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Some important libraries to load at the beginning:
+```{r message=FALSE, warning=FALSE}
+library(tibble)
+library(janitor)
+library(readr)
+library(readxl)
+library(openxlsx)
+library(lubridate)
+library(dplyr)
+library(tidylog, warn.conflicts = FALSE)
+library(ggplot2)
+```
+
+Import of survey dataset:
+```{r}
+library(readr)
+survey <- read_csv("/Users/sebastian_old/Desktop/EPFL_ES_FDS/Project_1/Data/survey.csv", 
+    col_types = cols(...1 = col_skip(), `Number of employees` = col_number(), 
+        `Number of PhD students` = col_number(), 
+        `Number of postdocs` = col_number(), 
+        `Number of professors` = col_number()))
+```
+
+## Part 1
+How many survey participants were there?
+```{r}
+survey %>% summarise(number_of_participants = n())
+```
+
+What are the data types of each column?
+```{r}
+str(survey)
+```
+
+What are the top 3 universities with the most survey participants? 
+```{r}
+tibble01 <-
+  survey %>%
+  group_by(University) %>%
+  summarise(participants_per_uni = n()) %>%
+  ungroup()
+head(tibble01, 3)
+```
+
+## Part 2
+Obtain a bar chart of the number of survey participants for the different positions given in the column 'Position'.
+
+```{r}
+tibble02 <-
+  survey %>%
+  group_by(Position) %>%
+  summarise(participants_per_position = n()) %>%
+  ungroup()
+```
+
+```{r}
+ggplot(data = tibble02,
+       mapping = aes(x = Position, 
+                     y = participants_per_position)) + 
+  geom_col() + 
+  coord_flip() + # coord_flip() inverts x/y, converting a vertical chart to a horizontal chart
+  labs(title = "Number of survey participants by position",
+       subtitle = "The most common positions were Postdocs and PhD Students",
+       x = "position",
+       y = "count")
+
+```
+
+## Part 3
+The column 'Sizes' in the dataset is supposed to group the data in the column 'Number of employees' in the following bins:
+
+    Small (0 to 20)
+    Medium (21 to 50)
+    Large (51 to 200)
+    Extra large (over 200)
+
+Unfortunately, somebody made mistakes in that column…
+Recreate this column correctly.  
+```{r}
+tibble03 <-
+survey %>%
+  mutate(sizes_corrected = case_when(
+           `Number of employees` <= 20 ~ "Small (0 to 20)",
+           `Number of employees` <= 50 ~ "Medium (21 to 50)",
+           `Number of employees` <= 200 ~ "Large (51 to 200)",
+           TRUE ~ "Extra large (over 200)"))
+```
+Plot a bar chart of the number of values in each of the bins.
+```{r}
+tibble04 <-
+  tibble03 %>%
+  group_by(sizes_corrected) %>%
+  summarise(participants_per_sizes = n()) %>%
+  ungroup()
+```
+
+```{r}
+ggplot(data = tibble04,
+       mapping = aes(x = sizes_corrected, 
+                     y = participants_per_sizes)) + 
+  geom_col() + 
+  labs(title = "Number of survey participants by size",
+       subtitle = "The most common group size among Participants was 'Small'",
+       x = "sizes_corrected",
+       y = "count")
+```
+
+## Part 4
+Obtain a stacked horizontal bar plot that gives the percentage of employees that are Ph.D. students, postdocs and professors for each research group.
+
+I start to try something with the given dataset:
+```{r}
+tibble05 <-
+  tibble03 %>%
+  mutate(survey_id = 0:29, 
+         percent_of_phd = (`Number of PhD students`/ `Number of employees`)*100,
+         percent_of_postdocs = (`Number of postdocs` / `Number of employees`)*100,
+         percent_of_prof = (`Number of professors` / `Number of employees`)*100,)
+```
+
+I don't know how to proceed so I give up and import the easier dataset: 
+```{r}
+library(readr)
+project1_part4 <- read_csv("/Users/sebastian_old/Desktop/EPFL_ES_FDS/Project_1/Data/project1_part4_chart_data.csv",
+    col_types = cols(percentage = col_number()))
+
+project1_part4 <- project1_part4 %>%
+     mutate(survey_id = factor(survey_id))
+```
+
+
+```{r}
+ggplot(data = project1_part4,
+       mapping = aes(x = survey_id,
+                     y = percentage,
+                     fill = employee_type,
+                     )) + 
+  scale_y_continuous(labels = scales::percent) +
+  geom_col(position="fill") +
+  coord_flip() +
+  labs(title = "Employees role percentages for each group",
+       subtitle = "We can see that groups can have very different splits",
+       x = "Research group id",
+       y = "Percentage",
+       fill = "Employee type") 
+```
